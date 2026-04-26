@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -6,6 +6,7 @@ import {
   SafeAreaView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 
@@ -59,8 +60,23 @@ function getPostDescription(item: Post) {
   return item.content ?? item.conteudo ?? item.body ?? item.description ?? item.descricao ?? '';
 }
 
+function getSearchableText(item: Post) {
+  return [
+    getPostTitle(item),
+    getPostDescription(item),
+    item.author,
+    item.autor,
+    item.createdAt,
+    item.dataCriacao,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+}
+
 export function PrincipalScreen() {
   const [posts, setPosts] = useState<Post[]>([]);
+  const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -89,6 +105,16 @@ export function PrincipalScreen() {
     loadPosts();
   }, [loadPosts]);
 
+  const filteredPosts = useMemo(() => {
+    const term = search.trim().toLowerCase();
+
+    if (!term) {
+      return posts;
+    }
+
+    return posts.filter((post) => getSearchableText(post).includes(term));
+  }, [posts, search]);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <Header />
@@ -101,7 +127,7 @@ export function PrincipalScreen() {
           </View>
         ) : (
           <FlatList
-            data={posts}
+            data={filteredPosts}
             keyExtractor={getPostId}
             refreshControl={
               <RefreshControl
@@ -110,11 +136,29 @@ export function PrincipalScreen() {
                 onRefresh={() => loadPosts(true)}
               />
             }
-            contentContainerStyle={posts.length === 0 ? styles.emptyList : styles.list}
+            ListHeaderComponent={
+              <View style={styles.searchContainer}>
+                <TextInput
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  clearButtonMode="while-editing"
+                  placeholder="Buscar posts por palavra-chave"
+                  placeholderTextColor="#9CA3AF"
+                  returnKeyType="search"
+                  style={styles.searchInput}
+                  value={search}
+                  onChangeText={setSearch}
+                />
+              </View>
+            }
+            contentContainerStyle={filteredPosts.length === 0 ? styles.emptyList : styles.list}
             ListEmptyComponent={
               <View style={styles.feedback}>
                 <Text style={styles.emptyTitle}>
-                  {error || 'Nenhum post encontrado.'}
+                  {error ||
+                    (search
+                      ? 'Nenhum post encontrado para esta busca.'
+                      : 'Nenhum post encontrado.')}
                 </Text>
                 <Text style={styles.emptyText}>Puxe para baixo para tentar novamente.</Text>
               </View>
@@ -167,6 +211,19 @@ const styles = StyleSheet.create({
   emptyList: {
     flexGrow: 1,
     padding: 16,
+  },
+  searchContainer: {
+    marginBottom: 4,
+  },
+  searchInput: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#D1D5DB',
+    borderRadius: 8,
+    borderWidth: 1,
+    color: '#111827',
+    fontSize: 15,
+    minHeight: 46,
+    paddingHorizontal: 14,
   },
   card: {
     backgroundColor: '#FFFFFF',
