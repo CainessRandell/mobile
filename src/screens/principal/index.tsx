@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   ActivityIndicator,
   FlatList,
+  Pressable,
   RefreshControl,
   SafeAreaView,
   StyleSheet,
@@ -13,8 +16,14 @@ import {
 import { api } from '@/api/api';
 import { Footer } from '@/components/Footer';
 import { Header } from '@/components/Header';
+import type { AppRoutesParamList } from '@/navigation/app.routes';
+
+const POSTS_PER_PAGE = 5;
+
+type Navigation = NativeStackNavigationProp<AppRoutesParamList>;
 
 type Post = {
+  _id?: string;
   id?: string | number;
   title?: string;
   titulo?: string;
@@ -49,7 +58,7 @@ function normalizePosts(data: unknown): Post[] {
 }
 
 function getPostId(item: Post, index: number) {
-  return String(item.id ?? index);
+  return String(item._id ?? item.id ?? index);
 }
 
 function getPostTitle(item: Post) {
@@ -58,6 +67,14 @@ function getPostTitle(item: Post) {
 
 function getPostDescription(item: Post) {
   return item.content ?? item.conteudo ?? item.body ?? item.description ?? item.descricao ?? '';
+}
+
+function truncateText(text: string, maxLength: number) {
+  if (text.length <= maxLength) {
+    return text;
+  }
+
+  return `${text.slice(0, maxLength).trimEnd()}...`;
 }
 
 function getSearchableText(item: Post) {
@@ -75,8 +92,10 @@ function getSearchableText(item: Post) {
 }
 
 export function PrincipalScreen() {
+  const navigation = useNavigation<Navigation>();
   const [posts, setPosts] = useState<Post[]>([]);
   const [search, setSearch] = useState('');
+  const [visiblePostsCount, setVisiblePostsCount] = useState(POSTS_PER_PAGE);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -115,6 +134,28 @@ export function PrincipalScreen() {
     return posts.filter((post) => getSearchableText(post).includes(term));
   }, [posts, search]);
 
+  const visiblePosts = useMemo(
+    () => filteredPosts.slice(0, visiblePostsCount),
+    [filteredPosts, visiblePostsCount],
+  );
+
+  const hasMorePosts = visiblePostsCount < filteredPosts.length;
+
+  function handleSearchChange(value: string) {
+    setSearch(value);
+    setVisiblePostsCount(POSTS_PER_PAGE);
+  }
+
+  function handleShowMore() {
+    setVisiblePostsCount((current) => current + POSTS_PER_PAGE);
+  }
+
+  function handleOpenPost(item: Post, index: number) {
+    navigation.navigate('ExibirPost', {
+      postId: getPostId(item, index),
+    });
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <Header />
@@ -127,7 +168,7 @@ export function PrincipalScreen() {
           </View>
         ) : (
           <FlatList
-            data={filteredPosts}
+            data={visiblePosts}
             keyExtractor={getPostId}
             refreshControl={
               <RefreshControl
@@ -147,11 +188,18 @@ export function PrincipalScreen() {
                   returnKeyType="search"
                   style={styles.searchInput}
                   value={search}
-                  onChangeText={setSearch}
+                  onChangeText={handleSearchChange}
                 />
               </View>
             }
-            contentContainerStyle={filteredPosts.length === 0 ? styles.emptyList : styles.list}
+            ListFooterComponent={
+              hasMorePosts ? (
+                <Pressable style={styles.showMoreButton} onPress={handleShowMore}>
+                  <Text style={styles.showMoreButtonText}>Exibir mais.</Text>
+                </Pressable>
+              ) : null
+            }
+            contentContainerStyle={visiblePosts.length === 0 ? styles.emptyList : styles.list}
             ListEmptyComponent={
               <View style={styles.feedback}>
                 <Text style={styles.emptyTitle}>
@@ -163,11 +211,11 @@ export function PrincipalScreen() {
                 <Text style={styles.emptyText}>Puxe para baixo para tentar novamente.</Text>
               </View>
             }
-            renderItem={({ item }) => {
-              const description = getPostDescription(item);
+            renderItem={({ item, index }) => {
+              const description = truncateText(getPostDescription(item), 128);
 
               return (
-                <View style={styles.card}>
+                <Pressable style={styles.card} onPress={() => handleOpenPost(item, index)}>
                   <Text style={styles.cardTitle}>{getPostTitle(item)}</Text>
 
                   {description ? (
@@ -184,7 +232,7 @@ export function PrincipalScreen() {
                       </Text>
                     </View>
                   ) : null}
-                </View>
+                </Pressable>
               );
             }}
           />
@@ -224,6 +272,19 @@ const styles = StyleSheet.create({
     fontSize: 15,
     minHeight: 46,
     paddingHorizontal: 14,
+  },
+  showMoreButton: {
+    alignItems: 'center',
+    backgroundColor: '#0F766E',
+    borderRadius: 8,
+    justifyContent: 'center',
+    marginTop: 4,
+    minHeight: 46,
+  },
+  showMoreButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
   },
   card: {
     backgroundColor: '#FFFFFF',

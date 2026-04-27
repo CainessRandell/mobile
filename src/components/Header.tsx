@@ -11,13 +11,14 @@ type HeaderProps = {
 };
 
 type Navigation = NativeStackNavigationProp<AppRoutesParamList>;
+type MenuRoute = 'Principal' | 'Login';
 
 export function Header({ title = 'Posts' }: HeaderProps) {
   const navigation = useNavigation<Navigation>();
   const route = useRoute();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  function handleNavigate(routeName: keyof AppRoutesParamList) {
+  function handleNavigate(routeName: MenuRoute) {
     setIsMenuOpen(false);
     navigation.navigate(routeName);
   }
