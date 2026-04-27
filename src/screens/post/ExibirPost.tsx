@@ -26,6 +26,7 @@ type PostDetail = {
   conteudo: string;
   autor: string;
   dataCriacao: string;
+  __v?: number;
 };
 
 function normalizePostDetail(data: unknown): PostDetail | null {
@@ -39,11 +40,12 @@ function normalizePostDetail(data: unknown): PostDetail | null {
   }
 
   return {
-    _id: String(post._id ?? post.id ?? ''),
-    titulo: String(post.titulo ?? post.title ?? ''),
-    conteudo: String(post.conteudo ?? post.content ?? post.body ?? ''),
-    autor: String(post.autor ?? post.author ?? ''),
-    dataCriacao: String(post.dataCriacao ?? post.createdAt ?? ''),
+    _id: String(post._id ?? ''),
+    titulo: String(post.titulo ?? ''),
+    conteudo: String(post.conteudo ?? ''),
+    autor: String(post.autor ?? ''),
+    dataCriacao: String(post.dataCriacao ?? ''),
+    __v: typeof post.__v === 'number' ? post.__v : undefined,
   };
 }
 

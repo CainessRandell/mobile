@@ -20,19 +20,12 @@ const POSTS_PER_PAGE = 5;
 type Navigation = NativeStackNavigationProp<AppRoutesParamList>;
 
 type Post = {
-  _id?: string;
-  id?: string | number;
-  title?: string;
-  titulo?: string;
-  content?: string;
-  conteudo?: string;
-  body?: string;
-  description?: string;
-  descricao?: string;
-  author?: string;
-  autor?: string;
-  createdAt?: string;
-  dataCriacao?: string;
+  _id: string;
+  titulo: string;
+  conteudo: string;
+  autor: string;
+  dataCriacao: string;
+  __v?: number;
 };
 
 function normalizePosts(data: unknown): Post[] {
@@ -42,7 +35,7 @@ function normalizePosts(data: unknown): Post[] {
 
   if (data && typeof data === 'object') {
     const response = data as Record<string, unknown>;
-    const candidates = [response.data, response.posts, response.content, response.items];
+    const candidates = [response.data, response.posts, response.items];
 
     for (const candidate of candidates) {
       if (Array.isArray(candidate)) {
@@ -54,16 +47,16 @@ function normalizePosts(data: unknown): Post[] {
   return [];
 }
 
-function getPostId(item: Post, index: number) {
-  return String(item._id ?? item.id ?? index);
+function getPostId(item: Post) {
+  return item._id;
 }
 
 function getPostTitle(item: Post) {
-  return item.title ?? item.titulo ?? 'Post sem titulo';
+  return item.titulo || 'Post sem titulo';
 }
 
 function getPostDescription(item: Post) {
-  return item.content ?? item.conteudo ?? item.body ?? item.description ?? item.descricao ?? '';
+  return item.conteudo || '';
 }
 
 function truncateText(text: string, maxLength: number) {
@@ -78,9 +71,7 @@ function getSearchableText(item: Post) {
   return [
     getPostTitle(item),
     getPostDescription(item),
-    item.author,
     item.autor,
-    item.createdAt,
     item.dataCriacao,
   ]
     .filter(Boolean)
@@ -151,9 +142,9 @@ export function PostList({ emptyMessage = 'Nenhum post encontrado.' }: PostListP
     setVisiblePostsCount((current) => current + POSTS_PER_PAGE);
   }
 
-  function handleOpenPost(item: Post, index: number) {
+  function handleOpenPost(item: Post) {
     navigation.navigate('ExibirPost', {
-      postId: getPostId(item, index),
+      postId: getPostId(item),
     });
   }
 
@@ -209,11 +200,11 @@ export function PostList({ emptyMessage = 'Nenhum post encontrado.' }: PostListP
           <Text style={styles.emptyText}>Puxe para baixo para tentar novamente.</Text>
         </View>
       }
-      renderItem={({ item, index }) => {
+      renderItem={({ item }) => {
         const description = truncateText(getPostDescription(item), 128);
 
         return (
-          <Pressable style={styles.card} onPress={() => handleOpenPost(item, index)}>
+          <Pressable style={styles.card} onPress={() => handleOpenPost(item)}>
             <Text style={styles.cardTitle}>{getPostTitle(item)}</Text>
 
             {description ? (
@@ -222,10 +213,10 @@ export function PostList({ emptyMessage = 'Nenhum post encontrado.' }: PostListP
               </Text>
             ) : null}
 
-            {item.author || item.autor || item.createdAt || item.dataCriacao ? (
+            {item.autor || item.dataCriacao ? (
               <View style={styles.metaRow}>
-                <Text style={styles.metaText}>{item.author ?? item.autor ?? 'Autor'}</Text>
-                <Text style={styles.metaText}>{item.createdAt ?? item.dataCriacao ?? ''}</Text>
+                <Text style={styles.metaText}>{item.autor || 'Autor'}</Text>
+                <Text style={styles.metaText}>{item.dataCriacao}</Text>
               </View>
             ) : null}
           </Pressable>
