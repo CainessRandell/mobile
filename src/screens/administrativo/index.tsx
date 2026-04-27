@@ -4,13 +4,13 @@ import { Footer } from '@/components/Footer';
 import { Header } from '@/components/Header';
 import { PostList } from '@/components/PostList';
 
-export function PrincipalScreen() {
+export function AdministrativoScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
-      <Header />
+      <Header title="Administrativo" />
 
       <View style={styles.content}>
-        <PostList />
+        <PostList emptyMessage="Nenhum post encontrado na area administrativa." />
       </View>
 
       <Footer />
