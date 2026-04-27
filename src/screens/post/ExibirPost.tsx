@@ -95,7 +95,7 @@ export function ExibirPostScreen() {
         ) : error || !post ? (
           <View style={styles.feedback}>
             <Text style={styles.errorText}>{error || 'Post nao encontrado.'}</Text>
-            <Pressable style={styles.primaryButton} onPress={() => navigation.navigate('Principal')}>
+            <Pressable style={styles.primaryButton} onPress={() => navigation.goBack()}>
               <Text style={styles.primaryButtonText}>Retornar</Text>
             </Pressable>
           </View>
@@ -120,8 +120,8 @@ export function ExibirPostScreen() {
 
             <Text style={styles.body}>{post.conteudo || 'Sem conteudo.'}</Text>
 
-            <Pressable style={styles.primaryButton} onPress={() => navigation.navigate('Principal')}>
-              <Text style={styles.primaryButtonText}>Retornar para tela principal</Text>
+            <Pressable style={styles.primaryButton} onPress={() => navigation.goBack()}>
+              <Text style={styles.primaryButtonText}>Retornar</Text>
             </Pressable>
           </ScrollView>
         )}
