@@ -10,7 +10,10 @@ export function AdministrativoScreen() {
       <Header title="Administrativo" />
 
       <View style={styles.content}>
-        <PostList emptyMessage="Nenhum post encontrado na area administrativa." />
+        <PostList
+          showEditButton
+          emptyMessage="Nenhum post encontrado na area administrativa."
+        />
       </View>
 
       <Footer />

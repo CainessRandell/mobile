@@ -3,6 +3,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Pressable,
   RefreshControl,
@@ -13,6 +14,7 @@ import {
 } from 'react-native';
 
 import { api } from '@/api/api';
+import { useAuth } from '@/contexts/AuthContext';
 import type { AppRoutesParamList } from '@/navigation/app.routes';
 
 const POSTS_PER_PAGE = 5;
@@ -80,17 +82,25 @@ function getSearchableText(item: Post) {
 }
 
 type PostListProps = {
+  showEditButton?: boolean;
   emptyMessage?: string;
 };
 
-export function PostList({ emptyMessage = 'Nenhum post encontrado.' }: PostListProps) {
+export function PostList({
+  showEditButton = false,
+  emptyMessage = 'Nenhum post encontrado.',
+}: PostListProps) {
   const navigation = useNavigation<Navigation>();
+  const { isAuthenticated, token, user } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
   const [search, setSearch] = useState('');
   const [visiblePostsCount, setVisiblePostsCount] = useState(POSTS_PER_PAGE);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
+  const [confirmingDeletePostId, setConfirmingDeletePostId] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const canManagePosts = isAuthenticated && user?.role?.toLowerCase() === 'professor' && Boolean(token);
 
   const loadPosts = useCallback(async (showRefresh = false) => {
     try {
@@ -148,6 +158,41 @@ export function PostList({ emptyMessage = 'Nenhum post encontrado.' }: PostListP
     });
   }
 
+  function handleEditPost(item: Post) {
+    navigation.navigate('EditarPost', {
+      postId: getPostId(item),
+    });
+  }
+
+  async function deletePost(item: Post) {
+    if (!canManagePosts || !token) {
+      Alert.alert('Delete', 'Acesso permitido somente para professor autenticado.');
+      return;
+    }
+
+    try {
+      const postId = getPostId(item);
+      setDeletingPostId(postId);
+
+      await api.delete(`/posts/${postId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      setConfirmingDeletePostId(null);
+      Alert.alert('Delete', 'Post removido com sucesso.');
+      await loadPosts(true);
+    } catch {
+      Alert.alert('Delete', 'Nao foi possivel remover o post.');
+    } finally {
+      setDeletingPostId(null);
+    }
+  }
+
+  function handleDeletePost(item: Post) {
+    setConfirmingDeletePostId(getPostId(item));
+  }
+
   if (isLoading) {
     return (
       <View style={styles.feedback}>
@@ -202,24 +247,80 @@ export function PostList({ emptyMessage = 'Nenhum post encontrado.' }: PostListP
       }
       renderItem={({ item }) => {
         const description = truncateText(getPostDescription(item), 128);
+        const postId = getPostId(item);
+        const isConfirmingDelete = confirmingDeletePostId === postId;
+        const isDeleting = deletingPostId === postId;
 
         return (
-          <Pressable style={styles.card} onPress={() => handleOpenPost(item)}>
-            <Text style={styles.cardTitle}>{getPostTitle(item)}</Text>
+          <View style={styles.card}>
+            <Pressable onPress={() => handleOpenPost(item)}>
+              <Text style={styles.cardTitle}>{getPostTitle(item)}</Text>
 
-            {description ? (
-              <Text numberOfLines={4} style={styles.cardDescription}>
-                {description}
-              </Text>
-            ) : null}
+              {description ? (
+                <Text numberOfLines={4} style={styles.cardDescription}>
+                  {description}
+                </Text>
+              ) : null}
 
-            {item.autor || item.dataCriacao ? (
-              <View style={styles.metaRow}>
-                <Text style={styles.metaText}>{item.autor || 'Autor'}</Text>
-                <Text style={styles.metaText}>{item.dataCriacao}</Text>
+              {item.autor || item.dataCriacao ? (
+                <View style={styles.metaRow}>
+                  <Text style={styles.metaText}>{item.autor || 'Autor'}</Text>
+                  <Text style={styles.metaText}>{item.dataCriacao}</Text>
+                </View>
+              ) : null}
+            </Pressable>
+
+            {showEditButton && canManagePosts ? (
+              <View style={styles.adminActions}>
+                <Pressable style={styles.editButton} onPress={() => handleEditPost(item)}>
+                  <Text style={styles.editButtonText}>Editar</Text>
+                </Pressable>
+
+                <Pressable
+                  disabled={isDeleting}
+                  style={[
+                    styles.deleteButton,
+                    isDeleting && styles.disabledButton,
+                  ]}
+                  onPress={() => handleDeletePost(item)}
+                >
+                  {isDeleting ? (
+                    <ActivityIndicator color="#B91C1C" />
+                  ) : (
+                    <Text style={styles.deleteButtonText}>Delete</Text>
+                  )}
+                </Pressable>
               </View>
             ) : null}
-          </Pressable>
+
+            {showEditButton && canManagePosts && isConfirmingDelete ? (
+              <View style={styles.deleteConfirmation}>
+                <Text style={styles.deleteConfirmationText}>Deseja remover este post?</Text>
+
+                <View style={styles.deleteConfirmationActions}>
+                  <Pressable
+                    disabled={isDeleting}
+                    style={styles.cancelDeleteButton}
+                    onPress={() => setConfirmingDeletePostId(null)}
+                  >
+                    <Text style={styles.cancelDeleteButtonText}>Cancelar</Text>
+                  </Pressable>
+
+                  <Pressable
+                    disabled={isDeleting}
+                    style={[styles.confirmDeleteButton, isDeleting && styles.disabledButton]}
+                    onPress={() => deletePost(item)}
+                  >
+                    {isDeleting ? (
+                      <ActivityIndicator color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.confirmDeleteButtonText}>Confirmar delete</Text>
+                    )}
+                  </Pressable>
+                </View>
+              </View>
+            ) : null}
+          </View>
         );
       }}
     />
@@ -289,6 +390,86 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     flexShrink: 1,
     fontSize: 12,
+  },
+  adminActions: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'flex-end',
+    marginTop: 14,
+  },
+  editButton: {
+    alignItems: 'center',
+    borderColor: '#0F766E',
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+  },
+  editButtonText: {
+    color: '#0F766E',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  deleteButton: {
+    alignItems: 'center',
+    borderColor: '#B91C1C',
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+  },
+  deleteButtonText: {
+    color: '#B91C1C',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
+  deleteConfirmation: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 12,
+    padding: 12,
+  },
+  deleteConfirmationText: {
+    color: '#7F1D1D',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  deleteConfirmationActions: {
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'flex-end',
+    marginTop: 10,
+  },
+  cancelDeleteButton: {
+    alignItems: 'center',
+    borderColor: '#9CA3AF',
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  cancelDeleteButtonText: {
+    color: '#374151',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  confirmDeleteButton: {
+    alignItems: 'center',
+    backgroundColor: '#B91C1C',
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  confirmDeleteButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
   },
   feedback: {
     alignItems: 'center',

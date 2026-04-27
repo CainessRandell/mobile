@@ -1,7 +1,9 @@
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -22,42 +24,102 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { AppRoutesParamList } from '@/navigation/app.routes';
 
 type Navigation = NativeStackNavigationProp<AppRoutesParamList>;
+type EditarPostRoute = RouteProp<AppRoutesParamList, 'EditarPost'>;
 
-export function CriarPostScreen() {
+type PostResponse = {
+  _id: string;
+  titulo: string;
+  conteudo: string;
+  autor: string;
+  dataCriacao: string;
+  __v?: number;
+};
+
+function normalizePost(data: unknown): PostResponse | null {
+  const response = data && typeof data === 'object' ? (data as Record<string, unknown>) : null;
+  const post = (response?.data && typeof response.data === 'object'
+    ? response.data
+    : response) as Record<string, unknown> | null;
+
+  if (!post) {
+    return null;
+  }
+
+  return {
+    _id: String(post._id ?? ''),
+    titulo: String(post.titulo ?? ''),
+    conteudo: String(post.conteudo ?? ''),
+    autor: String(post.autor ?? ''),
+    dataCriacao: String(post.dataCriacao ?? ''),
+    __v: typeof post.__v === 'number' ? post.__v : undefined,
+  };
+}
+
+export function EditarPostScreen() {
   const navigation = useNavigation<Navigation>();
+  const route = useRoute<EditarPostRoute>();
   const { isAuthenticated, token, user } = useAuth();
   const [formValues, setFormValues] = useState<PostFormValues>({
     titulo: '',
     conteudo: '',
-    autor: user?.nome ?? '',
+    autor: '',
   });
+  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
-  const canCreatePost = isAuthenticated && user?.role?.toLowerCase() === 'professor';
+  const canEditPost = isAuthenticated && user?.role?.toLowerCase() === 'professor';
+
+  const loadPost = useCallback(async () => {
+    if (!canEditPost) {
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setError('');
+
+      const response = await api.get(`/posts/${route.params.postId}`);
+      const post = normalizePost(response.data);
+
+      if (!post) {
+        setError('Post nao encontrado.');
+        return;
+      }
+
+      setFormValues({
+        titulo: post.titulo,
+        conteudo: post.conteudo,
+        autor: post.autor,
+      });
+    } catch {
+      setError('Nao foi possivel carregar o post.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [canEditPost, route.params.postId]);
 
   useEffect(() => {
-    setFormValues((current) => ({
-      ...current,
-      autor: current.autor || user?.nome || '',
-    }));
-  }, [user?.nome]);
+    loadPost();
+  }, [loadPost]);
 
-  async function handleCreatePost() {
-    if (!canCreatePost || !token) {
-      Alert.alert('Criar post', 'Acesso permitido somente para professor autenticado.');
+  async function handleUpdatePost() {
+    if (!canEditPost || !token) {
+      Alert.alert('Editar post', 'Acesso permitido somente para professor autenticado.');
       return;
     }
 
     if (!formValues.titulo.trim() || !formValues.conteudo.trim() || !formValues.autor.trim()) {
-      Alert.alert('Criar post', 'Informe titulo, conteudo e autor.');
+      Alert.alert('Editar post', 'Informe titulo, conteudo e autor.');
       return;
     }
 
     try {
       setIsSubmitting(true);
 
-      await api.post(
-        '/posts',
+      await api.put(
+        `/posts/${route.params.postId}`,
         {
           titulo: formValues.titulo.trim(),
           conteudo: formValues.conteudo.trim(),
@@ -70,10 +132,10 @@ export function CriarPostScreen() {
         },
       );
 
-      Alert.alert('Criar post', 'Post criado com sucesso.');
+      Alert.alert('Editar post', 'Post atualizado com sucesso.');
       navigation.navigate('Administrativo');
     } catch {
-      Alert.alert('Criar post', 'Nao foi possivel criar o post.');
+      Alert.alert('Editar post', 'Nao foi possivel atualizar o post.');
     } finally {
       setIsSubmitting(false);
     }
@@ -81,17 +143,14 @@ export function CriarPostScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <Header title="Criar Post" />
+      <Header title="Editar Post" />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.content}
       >
-        <ScrollView
-          contentContainerStyle={styles.form}
-          keyboardShouldPersistTaps="handled"
-        >
-          {!canCreatePost ? (
+        <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
+          {!canEditPost ? (
             <View style={styles.feedback}>
               <Text style={styles.feedbackTitle}>Acesso restrito</Text>
               <Text style={styles.feedbackText}>
@@ -101,14 +160,26 @@ export function CriarPostScreen() {
                 <Text style={styles.restrictedButtonText}>Voltar</Text>
               </Pressable>
             </View>
+          ) : isLoading ? (
+            <View style={styles.feedback}>
+              <ActivityIndicator color="#0F766E" size="large" />
+              <Text style={styles.feedbackText}>Carregando post...</Text>
+            </View>
+          ) : error ? (
+            <View style={styles.feedback}>
+              <Text style={styles.feedbackTitle}>{error}</Text>
+              <Pressable style={styles.restrictedButton} onPress={() => navigation.goBack()}>
+                <Text style={styles.restrictedButtonText}>Voltar</Text>
+              </Pressable>
+            </View>
           ) : (
             <PostForm
               isSubmitting={isSubmitting}
-              submitLabel="Criar"
+              submitLabel="Atualizar"
               values={formValues}
               onCancel={() => navigation.goBack()}
               onChange={setFormValues}
-              onSubmit={handleCreatePost}
+              onSubmit={handleUpdatePost}
             />
           )}
         </ScrollView>
@@ -142,6 +213,7 @@ const styles = StyleSheet.create({
     color: '#111827',
     fontSize: 18,
     fontWeight: '800',
+    textAlign: 'center',
   },
   feedbackText: {
     color: '#6B7280',
