@@ -1,13 +1,14 @@
 import axios from 'axios';
 
-const bearerToken = process.env.EXPO_PUBLIC_API_TOKEN;
-
 export const api = axios.create({
   baseURL: 'https://fivam-backend-fiap-0-0-2.onrender.com/',
-  headers: bearerToken
-    ? {
-        Authorization: `Bearer ${bearerToken}`,
-      }
-    : undefined,
   timeout: 10000,
 });
+
+export function setApiAuthToken(token: string) {
+  api.defaults.headers.common.Authorization = `Bearer ${token}`;
+}
+
+export function clearApiAuthToken() {
+  delete api.defaults.headers.common.Authorization;
+}
