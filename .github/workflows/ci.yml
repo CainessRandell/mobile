@@ -1,3 +1,12 @@
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
 jobs:
   build_android_apk:
     name: Build Android APK
@@ -47,3 +56,23 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: eas build --platform android --profile preview --non-interactive --wait
+
+      - name: Obter URL do APK gerado
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          BUILD_URL=$(eas build:list --platform android --limit 1 --json --non-interactive | node -e "let data=''; process.stdin.on('data', c => data += c); process.stdin.on('end', () => { const builds = JSON.parse(data); console.log(builds[0].artifacts.buildUrl); })")
+          echo "BUILD_URL=$BUILD_URL" >> $GITHUB_ENV
+          echo "APK gerado em: $BUILD_URL"
+
+      - name: Baixar APK
+        run: |
+          mkdir -p ../output
+          curl -L "$BUILD_URL" -o ../output/app-${{ github.sha }}.apk
+
+      - name: Disponibilizar APK para download
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-android-${{ github.ref_name }}
+          path: output/*.apk
+          retention-days: 30
