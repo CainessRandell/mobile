@@ -11,8 +11,7 @@ jobs:
   build_android_apk:
     name: Build Android APK
     runs-on: ubuntu-latest
-    environment: Configure secrets
-
+    environment: secrets
     defaults:
       run:
         working-directory: ./src
