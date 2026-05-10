@@ -12,6 +12,10 @@ jobs:
     name: Build Android APK
     runs-on: ubuntu-latest
 
+    defaults:
+      run:
+        working-directory: ./src
+
     steps:
       - name: Baixar código do repositório
         uses: actions/checkout@v4
@@ -21,6 +25,7 @@ jobs:
         with:
           node-version: 20
           cache: npm
+          cache-dependency-path: src/package-lock.json
 
       - name: Instalar dependências
         run: npm ci
@@ -42,8 +47,8 @@ jobs:
 
       - name: Baixar APK
         run: |
-          mkdir -p output
-          curl -L "$BUILD_URL" -o output/app-${{ github.sha }}.apk
+          mkdir -p ../output
+          curl -L "$BUILD_URL" -o ../output/app-${{ github.sha }}.apk
 
       - name: Disponibilizar APK para download
         uses: actions/upload-artifact@v4
