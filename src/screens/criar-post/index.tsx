@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 
 import { api } from '@/api/api';
+import { getApiErrorMessage } from '@/api/apiError';
 import { Footer } from '@/components/Footer';
 import { Header } from '@/components/Header';
 import { PostForm } from '@/components/PostForm';
@@ -72,8 +73,8 @@ export function CriarPostScreen() {
 
       Alert.alert('Criar post', 'Post criado com sucesso.');
       navigation.navigate('Administrativo');
-    } catch {
-      Alert.alert('Criar post', 'Nao foi possivel criar o post.');
+    } catch (error) {
+      Alert.alert('Criar post', getApiErrorMessage(error, 'Nao foi possivel criar o post.'));
     } finally {
       setIsSubmitting(false);
     }

@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 
 import { api } from '@/api/api';
+import { getApiErrorMessage } from '@/api/apiError';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import type { AppRoutesParamList } from '@/navigation/app.routes';
@@ -219,8 +220,11 @@ export function PostList({
 
       const response = await api.get('/posts');
       setPosts(normalizePosts(response.data));
-    } catch {
-      setError('Nao foi possivel carregar os posts.');
+    } catch (error) {
+      const message = getApiErrorMessage(error, 'Nao foi possivel carregar os posts.');
+
+      setError(message);
+      Alert.alert('Posts', message);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -287,8 +291,8 @@ export function PostList({
       setConfirmingDeletePostId(null);
       Alert.alert('Delete', 'Post removido com sucesso.');
       await loadPosts(true);
-    } catch {
-      Alert.alert('Delete', 'Nao foi possivel remover o post.');
+    } catch (error) {
+      Alert.alert('Delete', getApiErrorMessage(error, 'Nao foi possivel remover o post.'));
     } finally {
       setDeletingPostId(null);
     }

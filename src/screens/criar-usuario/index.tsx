@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 
 import { api } from '@/api/api';
+import { getApiErrorMessage } from '@/api/apiError';
 import { Footer } from '@/components/Footer';
 import { Header } from '@/components/Header';
 import { UserForm } from '@/components/UserForm';
@@ -79,8 +80,11 @@ export function CriarUsuarioScreen() {
 
       Alert.alert('Criar usuario', 'Usuario criado com sucesso.');
       navigation.navigate(formValues.role === 'professor' ? 'Professores' : 'Alunos');
-    } catch {
-      Alert.alert('Criar usuario', 'Nao foi possivel criar o usuario.');
+    } catch (error) {
+      Alert.alert(
+        'Criar usuario',
+        getApiErrorMessage(error, 'Nao foi possivel criar o usuario.'),
+      );
     } finally {
       setIsSubmitting(false);
     }

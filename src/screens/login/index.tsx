@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 
 import { api } from '@/api/api';
+import { getApiErrorMessage } from '@/api/apiError';
 import { Footer } from '@/components/Footer';
 import { Header } from '@/components/Header';
 import { useAuth } from '@/contexts/AuthContext';
@@ -103,7 +104,7 @@ function getFirebaseLoginMessage(error: unknown) {
     return 'Falha de rede ao autenticar no Firebase.';
   }
 
-  return 'Nao foi possivel realizar o login.';
+  return '';
 }
 
 export function LoginScreen() {
@@ -152,7 +153,11 @@ export function LoginScreen() {
         }
       }
 
-      Alert.alert('Login', getFirebaseLoginMessage(error));
+      Alert.alert(
+        'Login',
+        getFirebaseLoginMessage(error) ||
+          getApiErrorMessage(error, 'Nao foi possivel realizar o login.'),
+      );
     } finally {
       setIsSubmitting(false);
     }

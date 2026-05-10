@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 
 import { api } from '@/api/api';
+import { getApiErrorMessage } from '@/api/apiError';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import type { AppRoutesParamList } from '@/navigation/app.routes';
@@ -177,8 +178,11 @@ export function UserList({ emptyMessage, role, searchPlaceholder, userLabel }: U
       });
 
       setUsers(normalizeUsers(response.data));
-    } catch {
-      setError(`Nao foi possivel carregar ${userLabel}.`);
+    } catch (error) {
+      const message = getApiErrorMessage(error, `Nao foi possivel carregar ${userLabel}.`);
+
+      setError(message);
+      Alert.alert('Usuarios', message);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -217,8 +221,8 @@ export function UserList({ emptyMessage, role, searchPlaceholder, userLabel }: U
       setConfirmingDeleteUserId(null);
       Alert.alert('Delete', 'Usuario removido com sucesso.');
       await loadUsers(true);
-    } catch {
-      Alert.alert('Delete', 'Nao foi possivel remover o usuario.');
+    } catch (error) {
+      Alert.alert('Delete', getApiErrorMessage(error, 'Nao foi possivel remover o usuario.'));
     } finally {
       setDeletingUserId(null);
     }

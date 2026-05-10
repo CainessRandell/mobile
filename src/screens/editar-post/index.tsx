@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 
 import { api } from '@/api/api';
+import { getApiErrorMessage } from '@/api/apiError';
 import { Footer } from '@/components/Footer';
 import { Header } from '@/components/Header';
 import { PostForm } from '@/components/PostForm';
@@ -93,8 +94,11 @@ export function EditarPostScreen() {
         conteudo: post.conteudo,
         autor: post.autor,
       });
-    } catch {
-      setError('Nao foi possivel carregar o post.');
+    } catch (error) {
+      const message = getApiErrorMessage(error, 'Nao foi possivel carregar o post.');
+
+      setError(message);
+      Alert.alert('Editar post', message);
     } finally {
       setIsLoading(false);
     }
@@ -134,8 +138,8 @@ export function EditarPostScreen() {
 
       Alert.alert('Editar post', 'Post atualizado com sucesso.');
       navigation.navigate('Administrativo');
-    } catch {
-      Alert.alert('Editar post', 'Nao foi possivel atualizar o post.');
+    } catch (error) {
+      Alert.alert('Editar post', getApiErrorMessage(error, 'Nao foi possivel atualizar o post.'));
     } finally {
       setIsSubmitting(false);
     }

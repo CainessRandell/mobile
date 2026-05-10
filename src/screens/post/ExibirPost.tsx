@@ -4,6 +4,7 @@ import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -13,6 +14,7 @@ import {
 } from 'react-native';
 
 import { api } from '@/api/api';
+import { getApiErrorMessage } from '@/api/apiError';
 import { Footer } from '@/components/Footer';
 import { Header } from '@/components/Header';
 import type { AppRoutesParamList } from '@/navigation/app.routes';
@@ -71,8 +73,11 @@ export function ExibirPostScreen() {
       }
 
       setPost(normalizedPost);
-    } catch {
-      setError('Nao foi possivel carregar o post.');
+    } catch (error) {
+      const message = getApiErrorMessage(error, 'Nao foi possivel carregar o post.');
+
+      setError(message);
+      Alert.alert('Post', message);
     } finally {
       setIsLoading(false);
     }

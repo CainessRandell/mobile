@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 
 import { api } from '@/api/api';
+import { getApiErrorMessage } from '@/api/apiError';
 import { Footer } from '@/components/Footer';
 import { Header } from '@/components/Header';
 import { UserForm } from '@/components/UserForm';
@@ -103,8 +104,11 @@ export function EditarUsuarioScreen() {
         confirmacaoSenha: '',
         role: normalizeRole(user.role),
       });
-    } catch {
-      setError('Nao foi possivel carregar o usuario.');
+    } catch (error) {
+      const message = getApiErrorMessage(error, 'Nao foi possivel carregar o usuario.');
+
+      setError(message);
+      Alert.alert('Editar usuario', message);
     } finally {
       setIsLoading(false);
     }
@@ -144,7 +148,7 @@ export function EditarUsuarioScreen() {
         {
           nome: formValues.nome.trim(),
           email: formValues.email.trim(),
-          senha: formValues.senha,
+          password: formValues.senha,
           role: formValues.role,
         },
         {
@@ -156,8 +160,11 @@ export function EditarUsuarioScreen() {
 
       Alert.alert('Editar usuario', 'Usuario atualizado com sucesso.');
       navigation.navigate('Professores');
-    } catch {
-      Alert.alert('Editar usuario', 'Nao foi possivel atualizar o usuario.');
+    } catch (error) {
+      Alert.alert(
+        'Editar usuario',
+        getApiErrorMessage(error, 'Nao foi possivel atualizar o usuario.'),
+      );
     } finally {
       setIsSubmitting(false);
     }
