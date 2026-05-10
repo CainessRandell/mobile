@@ -36,10 +36,19 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
+      - name: Validar autenticação EAS
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: eas whoami
+
       - name: Gerar APK Android com EAS
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: eas build --platform android --profile preview --non-interactive --wait
 
       - name: Obter URL do APK gerado
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           BUILD_URL=$(eas build:list --platform android --limit 1 --json --non-interactive | node -e "let data=''; process.stdin.on('data', c => data += c); process.stdin.on('end', () => { const builds = JSON.parse(data); console.log(builds[0].artifacts.buildUrl); })")
           echo "BUILD_URL=$BUILD_URL" >> $GITHUB_ENV
