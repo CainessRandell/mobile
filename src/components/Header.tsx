@@ -4,7 +4,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { useAuth } from '@/contexts/AuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import type { AppRoutesParamList } from '@/navigation/app.routes';
 
 type HeaderProps = {
@@ -12,14 +12,13 @@ type HeaderProps = {
 };
 
 type Navigation = NativeStackNavigationProp<AppRoutesParamList>;
-type MenuRoute = 'Principal' | 'Login' | 'Administrativo' | 'CriarPost';
+type MenuRoute = 'Principal' | 'Login' | 'Administrativo' | 'CriarPost' | 'Professores' | 'Alunos';
 
 export function Header({ title = 'Posts' }: HeaderProps) {
   const navigation = useNavigation<Navigation>();
   const route = useRoute();
-  const { isAuthenticated, user } = useAuth();
+  const { canAccessAdmin } = usePermissions();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const canAccessAdmin = isAuthenticated && user?.role?.toLowerCase() === 'professor';
 
   function handleNavigate(routeName: MenuRoute) {
     setIsMenuOpen(false);
@@ -75,6 +74,20 @@ export function Header({ title = 'Posts' }: HeaderProps) {
                 onPress={() => handleNavigate('CriarPost')}
               >
                 <Text style={styles.menuText}>Criar Post</Text>
+              </Pressable>
+
+              <Pressable
+                style={[styles.menuItem, route.name === 'Professores' && styles.activeMenuItem]}
+                onPress={() => handleNavigate('Professores')}
+              >
+                <Text style={styles.menuText}>Professores</Text>
+              </Pressable>
+
+              <Pressable
+                style={[styles.menuItem, route.name === 'Alunos' && styles.activeMenuItem]}
+                onPress={() => handleNavigate('Alunos')}
+              >
+                <Text style={styles.menuText}>Alunos</Text>
               </Pressable>
             </>
           ) : null}

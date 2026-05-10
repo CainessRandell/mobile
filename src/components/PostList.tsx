@@ -15,6 +15,7 @@ import {
 
 import { api } from '@/api/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import type { AppRoutesParamList } from '@/navigation/app.routes';
 
 const POSTS_PER_PAGE = 5;
@@ -91,7 +92,8 @@ export function PostList({
   emptyMessage = 'Nenhum post encontrado.',
 }: PostListProps) {
   const navigation = useNavigation<Navigation>();
-  const { isAuthenticated, token, user } = useAuth();
+  const { token } = useAuth();
+  const { canManagePosts } = usePermissions();
   const [posts, setPosts] = useState<Post[]>([]);
   const [search, setSearch] = useState('');
   const [visiblePostsCount, setVisiblePostsCount] = useState(POSTS_PER_PAGE);
@@ -100,7 +102,6 @@ export function PostList({
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
   const [confirmingDeletePostId, setConfirmingDeletePostId] = useState<string | null>(null);
   const [error, setError] = useState('');
-  const canManagePosts = isAuthenticated && user?.role?.toLowerCase() === 'professor' && Boolean(token);
 
   const loadPosts = useCallback(async (showRefresh = false) => {
     try {

@@ -18,60 +18,64 @@ import {
 import { api } from '@/api/api';
 import { Footer } from '@/components/Footer';
 import { Header } from '@/components/Header';
-import { PostForm } from '@/components/PostForm';
-import type { PostFormValues } from '@/components/PostForm';
+import { UserForm } from '@/components/UserForm';
+import type { UserFormValues, UserRole } from '@/components/UserForm';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import type { AppRoutesParamList } from '@/navigation/app.routes';
 
 type Navigation = NativeStackNavigationProp<AppRoutesParamList>;
-type EditarPostRoute = RouteProp<AppRoutesParamList, 'EditarPost'>;
+type EditarUsuarioRoute = RouteProp<AppRoutesParamList, 'EditarUsuario'>;
 
-type PostResponse = {
+type UserResponse = {
   _id: string;
-  titulo: string;
-  conteudo: string;
-  autor: string;
-  dataCriacao: string;
+  nome: string;
+  email: string;
+  role: string;
   __v?: number;
 };
 
-function normalizePost(data: unknown): PostResponse | null {
+function normalizeUser(data: unknown): UserResponse | null {
   const response = data && typeof data === 'object' ? (data as Record<string, unknown>) : null;
-  const post = (response?.data && typeof response.data === 'object'
+  const user = (response?.data && typeof response.data === 'object'
     ? response.data
     : response) as Record<string, unknown> | null;
 
-  if (!post) {
+  if (!user) {
     return null;
   }
 
   return {
-    _id: String(post._id ?? ''),
-    titulo: String(post.titulo ?? ''),
-    conteudo: String(post.conteudo ?? ''),
-    autor: String(post.autor ?? ''),
-    dataCriacao: String(post.dataCriacao ?? ''),
-    __v: typeof post.__v === 'number' ? post.__v : undefined,
+    _id: String(user._id ?? ''),
+    nome: String(user.nome ?? ''),
+    email: String(user.email ?? ''),
+    role: String(user.role ?? ''),
+    __v: typeof user.__v === 'number' ? user.__v : undefined,
   };
 }
 
-export function EditarPostScreen() {
+function normalizeRole(role: string): UserRole {
+  return role === 'professor' ? 'professor' : 'aluno';
+}
+
+export function EditarUsuarioScreen() {
   const navigation = useNavigation<Navigation>();
-  const route = useRoute<EditarPostRoute>();
+  const route = useRoute<EditarUsuarioRoute>();
   const { token } = useAuth();
-  const { canEditPost } = usePermissions();
-  const [formValues, setFormValues] = useState<PostFormValues>({
-    titulo: '',
-    conteudo: '',
-    autor: '',
+  const { canManageUsers } = usePermissions();
+  const [formValues, setFormValues] = useState<UserFormValues>({
+    nome: '',
+    email: '',
+    senha: '',
+    confirmacaoSenha: '',
+    role: 'aluno',
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const loadPost = useCallback(async () => {
-    if (!canEditPost) {
+  const loadUser = useCallback(async () => {
+    if (!canManageUsers || !token) {
       setIsLoading(false);
       return;
     }
@@ -80,38 +84,55 @@ export function EditarPostScreen() {
       setIsLoading(true);
       setError('');
 
-      const response = await api.get(`/posts/${route.params.postId}`);
-      const post = normalizePost(response.data);
+      const response = await api.get(`/users/${route.params.userId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const user = normalizeUser(response.data);
 
-      if (!post) {
-        setError('Post nao encontrado.');
+      if (!user) {
+        setError('Usuario nao encontrado.');
         return;
       }
 
       setFormValues({
-        titulo: post.titulo,
-        conteudo: post.conteudo,
-        autor: post.autor,
+        nome: user.nome,
+        email: user.email,
+        senha: '',
+        confirmacaoSenha: '',
+        role: normalizeRole(user.role),
       });
     } catch {
-      setError('Nao foi possivel carregar o post.');
+      setError('Nao foi possivel carregar o usuario.');
     } finally {
       setIsLoading(false);
     }
-  }, [canEditPost, route.params.postId]);
+  }, [canManageUsers, route.params.userId, token]);
 
   useEffect(() => {
-    loadPost();
-  }, [loadPost]);
+    loadUser();
+  }, [loadUser]);
 
-  async function handleUpdatePost() {
-    if (!canEditPost || !token) {
-      Alert.alert('Editar post', 'Acesso permitido somente para professor autenticado.');
+  async function handleUpdateUser() {
+    if (!canManageUsers || !token) {
+      Alert.alert('Editar usuario', 'Acesso permitido somente para professor autenticado.');
       return;
     }
 
-    if (!formValues.titulo.trim() || !formValues.conteudo.trim() || !formValues.autor.trim()) {
-      Alert.alert('Editar post', 'Informe titulo, conteudo e autor.');
+    if (
+      !formValues.nome.trim() ||
+      !formValues.email.trim() ||
+      !formValues.senha.trim() ||
+      !formValues.confirmacaoSenha.trim() ||
+      !formValues.role.trim()
+    ) {
+      Alert.alert('Editar usuario', 'Informe nome, email, senha, confirmacao de senha e role.');
+      return;
+    }
+
+    if (formValues.senha !== formValues.confirmacaoSenha) {
+      Alert.alert('Editar usuario', 'A senha e a confirmacao de senha devem ser iguais.');
       return;
     }
 
@@ -119,11 +140,12 @@ export function EditarPostScreen() {
       setIsSubmitting(true);
 
       await api.put(
-        `/posts/${route.params.postId}`,
+        `/users/${route.params.userId}`,
         {
-          titulo: formValues.titulo.trim(),
-          conteudo: formValues.conteudo.trim(),
-          autor: formValues.autor.trim(),
+          nome: formValues.nome.trim(),
+          email: formValues.email.trim(),
+          senha: formValues.senha,
+          role: formValues.role,
         },
         {
           headers: {
@@ -132,10 +154,10 @@ export function EditarPostScreen() {
         },
       );
 
-      Alert.alert('Editar post', 'Post atualizado com sucesso.');
-      navigation.navigate('Administrativo');
+      Alert.alert('Editar usuario', 'Usuario atualizado com sucesso.');
+      navigation.navigate('Professores');
     } catch {
-      Alert.alert('Editar post', 'Nao foi possivel atualizar o post.');
+      Alert.alert('Editar usuario', 'Nao foi possivel atualizar o usuario.');
     } finally {
       setIsSubmitting(false);
     }
@@ -143,14 +165,14 @@ export function EditarPostScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <Header title="Editar Post" />
+      <Header title="Editar Usuario" />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.content}
       >
         <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
-          {!canEditPost ? (
+          {!canManageUsers ? (
             <View style={styles.feedback}>
               <Text style={styles.feedbackTitle}>Acesso restrito</Text>
               <Text style={styles.feedbackText}>
@@ -163,7 +185,7 @@ export function EditarPostScreen() {
           ) : isLoading ? (
             <View style={styles.feedback}>
               <ActivityIndicator color="#0F766E" size="large" />
-              <Text style={styles.feedbackText}>Carregando post...</Text>
+              <Text style={styles.feedbackText}>Carregando usuario...</Text>
             </View>
           ) : error ? (
             <View style={styles.feedback}>
@@ -173,13 +195,12 @@ export function EditarPostScreen() {
               </Pressable>
             </View>
           ) : (
-            <PostForm
+            <UserForm
               isSubmitting={isSubmitting}
-              submitLabel="Atualizar"
               values={formValues}
               onCancel={() => navigation.goBack()}
               onChange={setFormValues}
-              onSubmit={handleUpdatePost}
+              onSubmit={handleUpdateUser}
             />
           )}
         </ScrollView>

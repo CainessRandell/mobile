@@ -1,10 +1,13 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { AdministrativoScreen } from '@/screens/administrativo';
+import { AlunosScreen } from '@/screens/alunos';
 import { CriarPostScreen } from '@/screens/criar-post';
 import { EditarPostScreen } from '@/screens/editar-post';
+import { EditarUsuarioScreen } from '@/screens/editar-usuario';
 import { LoginScreen } from '@/screens/login';
 import { ExibirPostScreen } from '@/screens/post/ExibirPost';
+import { ProfessoresScreen } from '@/screens/professores';
 import { PrincipalScreen } from '@/screens/principal';
 
 export type AppRoutesParamList = {
@@ -12,6 +15,11 @@ export type AppRoutesParamList = {
   Login: undefined;
   Administrativo: undefined;
   CriarPost: undefined;
+  Professores: undefined;
+  Alunos: undefined;
+  EditarUsuario: {
+    userId: string;
+  };
   EditarPost: {
     postId: string;
   };
@@ -34,6 +42,9 @@ export function AppRoutes() {
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Administrativo" component={AdministrativoScreen} />
       <Stack.Screen name="CriarPost" component={CriarPostScreen} />
+      <Stack.Screen name="Professores" component={ProfessoresScreen} />
+      <Stack.Screen name="Alunos" component={AlunosScreen} />
+      <Stack.Screen name="EditarUsuario" component={EditarUsuarioScreen} />
       <Stack.Screen name="EditarPost" component={EditarPostScreen} />
       <Stack.Screen name="ExibirPost" component={ExibirPostScreen} />
     </Stack.Navigator>

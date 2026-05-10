@@ -19,21 +19,21 @@ import { Header } from '@/components/Header';
 import { PostForm } from '@/components/PostForm';
 import type { PostFormValues } from '@/components/PostForm';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import type { AppRoutesParamList } from '@/navigation/app.routes';
 
 type Navigation = NativeStackNavigationProp<AppRoutesParamList>;
 
 export function CriarPostScreen() {
   const navigation = useNavigation<Navigation>();
-  const { isAuthenticated, token, user } = useAuth();
+  const { token, user } = useAuth();
+  const { canCreatePost } = usePermissions();
   const [formValues, setFormValues] = useState<PostFormValues>({
     titulo: '',
     conteudo: '',
     autor: user?.nome ?? '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const canCreatePost = isAuthenticated && user?.role?.toLowerCase() === 'professor';
 
   useEffect(() => {
     setFormValues((current) => ({
