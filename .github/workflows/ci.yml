@@ -1,0 +1,28 @@
+stages:
+  - build
+
+build_android_apk_release:
+  stage: build
+  image: node:20
+
+  variables:
+    CI: "1"
+
+  before_script:
+    - npm ci
+    - npm install -g eas-cli
+
+  script:
+    - mkdir -p output
+    - eas build --platform android --profile preview --non-interactive --wait
+    - BUILD_URL=$(eas build:list --platform android --limit 1 --json --non-interactive | node -e "let data=''; process.stdin.on('data', c => data += c); process.stdin.on('end', () => { const builds = JSON.parse(data); console.log(builds[0].artifacts.buildUrl); })")
+    - curl -L "$BUILD_URL" -o output/app-${CI_COMMIT_TAG}.apk
+
+  artifacts:
+    name: "apk-${CI_PROJECT_NAME}-${CI_COMMIT_TAG}"
+    paths:
+      - output/*.apk
+    expire_in: 90 days
+
+  rules:
+    - if: '$CI_COMMIT_TAG'
