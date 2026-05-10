@@ -1,28 +1,53 @@
-stages:
-  - build
+name: Build Android APK
 
-build_android_apk_release:
-  stage: build
-  image: node:20
+on:
+  push:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
 
-  variables:
-    CI: "1"
+jobs:
+  build_android_apk:
+    name: Build Android APK
+    runs-on: ubuntu-latest
 
-  before_script:
-    - npm ci
-    - npm install -g eas-cli
+    steps:
+      - name: Baixar código do repositório
+        uses: actions/checkout@v4
 
-  script:
-    - mkdir -p output
-    - eas build --platform android --profile preview --non-interactive --wait
-    - BUILD_URL=$(eas build:list --platform android --limit 1 --json --non-interactive | node -e "let data=''; process.stdin.on('data', c => data += c); process.stdin.on('end', () => { const builds = JSON.parse(data); console.log(builds[0].artifacts.buildUrl); })")
-    - curl -L "$BUILD_URL" -o output/app-${CI_COMMIT_TAG}.apk
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
 
-  artifacts:
-    name: "apk-${CI_PROJECT_NAME}-${CI_COMMIT_TAG}"
-    paths:
-      - output/*.apk
-    expire_in: 90 days
+      - name: Instalar dependências
+        run: npm ci
 
-  rules:
-    - if: '$CI_COMMIT_TAG'
+      - name: Configurar Expo e EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Gerar APK Android com EAS
+        run: eas build --platform android --profile preview --non-interactive --wait
+
+      - name: Obter URL do APK gerado
+        run: |
+          BUILD_URL=$(eas build:list --platform android --limit 1 --json --non-interactive | node -e "let data=''; process.stdin.on('data', c => data += c); process.stdin.on('end', () => { const builds = JSON.parse(data); console.log(builds[0].artifacts.buildUrl); })")
+          echo "BUILD_URL=$BUILD_URL" >> $GITHUB_ENV
+          echo "APK gerado em: $BUILD_URL"
+
+      - name: Baixar APK
+        run: |
+          mkdir -p output
+          curl -L "$BUILD_URL" -o output/app-${{ github.sha }}.apk
+
+      - name: Disponibilizar APK para download
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-android-${{ github.ref_name }}
+          path: output/*.apk
+          retention-days: 30
