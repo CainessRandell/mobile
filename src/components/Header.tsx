@@ -12,7 +12,14 @@ type HeaderProps = {
 };
 
 type Navigation = NativeStackNavigationProp<AppRoutesParamList>;
-type MenuRoute = 'Principal' | 'Login' | 'Administrativo' | 'CriarPost' | 'Professores' | 'Alunos';
+type MenuRoute =
+  | 'Principal'
+  | 'Login'
+  | 'Administrativo'
+  | 'CriarPost'
+  | 'CriarUsuario'
+  | 'Professores'
+  | 'Alunos';
 
 export function Header({ title = 'Posts' }: HeaderProps) {
   const navigation = useNavigation<Navigation>();
@@ -74,6 +81,13 @@ export function Header({ title = 'Posts' }: HeaderProps) {
                 onPress={() => handleNavigate('CriarPost')}
               >
                 <Text style={styles.menuText}>Criar Post</Text>
+              </Pressable>
+
+              <Pressable
+                style={[styles.menuItem, route.name === 'CriarUsuario' && styles.activeMenuItem]}
+                onPress={() => handleNavigate('CriarUsuario')}
+              >
+                <Text style={styles.menuText}>Criar Usuario</Text>
               </Pressable>
 
               <Pressable

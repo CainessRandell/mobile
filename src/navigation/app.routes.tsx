@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AdministrativoScreen } from '@/screens/administrativo';
 import { AlunosScreen } from '@/screens/alunos';
 import { CriarPostScreen } from '@/screens/criar-post';
+import { CriarUsuarioScreen } from '@/screens/criar-usuario';
 import { EditarPostScreen } from '@/screens/editar-post';
 import { EditarUsuarioScreen } from '@/screens/editar-usuario';
 import { LoginScreen } from '@/screens/login';
@@ -15,6 +16,7 @@ export type AppRoutesParamList = {
   Login: undefined;
   Administrativo: undefined;
   CriarPost: undefined;
+  CriarUsuario: undefined;
   Professores: undefined;
   Alunos: undefined;
   EditarUsuario: {
@@ -42,6 +44,7 @@ export function AppRoutes() {
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Administrativo" component={AdministrativoScreen} />
       <Stack.Screen name="CriarPost" component={CriarPostScreen} />
+      <Stack.Screen name="CriarUsuario" component={CriarUsuarioScreen} />
       <Stack.Screen name="Professores" component={ProfessoresScreen} />
       <Stack.Screen name="Alunos" component={AlunosScreen} />
       <Stack.Screen name="EditarUsuario" component={EditarUsuarioScreen} />

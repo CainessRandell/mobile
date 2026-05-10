@@ -21,14 +21,18 @@ export type UserFormValues = {
 type UserFormProps = {
   values: UserFormValues;
   isSubmitting: boolean;
+  submitLabel?: string;
   onCancel: () => void;
   onChange: (values: UserFormValues) => void;
   onSubmit: () => void;
 };
 
+type TextUserFormField = Exclude<keyof UserFormValues, 'role'>;
+
 export function UserForm({
   values,
   isSubmitting,
+  submitLabel = 'Atualizar',
   onCancel,
   onChange,
   onSubmit,
@@ -36,7 +40,7 @@ export function UserForm({
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordConfirmation, setShowPasswordConfirmation] = useState(false);
 
-  function updateField(field: keyof UserFormValues, value: string) {
+  function updateField(field: TextUserFormField, value: string) {
     onChange({
       ...values,
       [field]: value,
@@ -162,7 +166,7 @@ export function UserForm({
           {isSubmitting ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.submitButtonText}>Atualizar</Text>
+            <Text style={styles.submitButtonText}>{submitLabel}</Text>
           )}
         </Pressable>
       </View>
