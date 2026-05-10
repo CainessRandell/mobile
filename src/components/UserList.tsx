@@ -59,6 +59,87 @@ function getUserSearchText(user: UserItem) {
   return [user.nome, user.email, user.role].filter(Boolean).join(' ').toLowerCase();
 }
 
+type UserListItemProps = {
+  confirmingDeleteUserId: string | null;
+  deletingUserId: string | null;
+  item: UserItem;
+  onCancelDelete: () => void;
+  onConfirmDelete: (user: UserItem) => void;
+  onDelete: (user: UserItem) => void;
+  onEdit: (user: UserItem) => void;
+};
+
+function ListSeparator() {
+  return <View style={styles.separator} />;
+}
+
+function UserListItem({
+  confirmingDeleteUserId,
+  deletingUserId,
+  item,
+  onCancelDelete,
+  onConfirmDelete,
+  onDelete,
+  onEdit,
+}: UserListItemProps) {
+  const isDeleting = deletingUserId === item._id;
+  const isConfirmingDelete = confirmingDeleteUserId === item._id;
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>{item.nome || 'Sem nome'}</Text>
+      <Text style={styles.cardText}>{item.email}</Text>
+      <Text style={styles.cardMeta}>{item.role}</Text>
+
+      <View style={styles.actions}>
+        <Pressable style={styles.editButton} onPress={() => onEdit(item)}>
+          <Text style={styles.editButtonText}>Editar</Text>
+        </Pressable>
+
+        <Pressable
+          disabled={isDeleting}
+          style={[styles.deleteButton, isDeleting && styles.disabledButton]}
+          onPress={() => onDelete(item)}
+        >
+          {isDeleting ? (
+            <ActivityIndicator color="#B91C1C" />
+          ) : (
+            <Text style={styles.deleteButtonText}>Delete</Text>
+          )}
+        </Pressable>
+      </View>
+
+      {isConfirmingDelete ? (
+        <View style={styles.deleteConfirmation}>
+          <Text style={styles.deleteConfirmationText}>Deseja remover este usuario?</Text>
+
+          <View style={styles.deleteConfirmationActions}>
+            <Pressable
+              disabled={isDeleting}
+              style={styles.cancelDeleteButton}
+              onPress={onCancelDelete}
+            >
+              <Text style={styles.cancelDeleteButtonText}>Cancelar</Text>
+            </Pressable>
+
+            <Pressable
+              disabled={isDeleting}
+              style={[styles.confirmDeleteButton, isDeleting && styles.disabledButton]}
+              onPress={() => onConfirmDelete(item)}
+            >
+              {isDeleting ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.confirmDeleteButtonText}>Confirmar delete</Text>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 export function UserList({ emptyMessage, role, searchPlaceholder, userLabel }: UserListProps) {
   const navigation = useNavigation<Navigation>();
   const { token } = useAuth();
@@ -118,7 +199,7 @@ export function UserList({ emptyMessage, role, searchPlaceholder, userLabel }: U
     return users.filter((user) => getUserSearchText(user).includes(term));
   }, [search, users]);
 
-  async function deleteUser(user: UserItem) {
+  const deleteUser = useCallback(async (user: UserItem) => {
     if (!canManageUsers || !token) {
       Alert.alert('Delete', 'Acesso permitido somente para professor autenticado.');
       return;
@@ -141,7 +222,78 @@ export function UserList({ emptyMessage, role, searchPlaceholder, userLabel }: U
     } finally {
       setDeletingUserId(null);
     }
-  }
+  }, [canManageUsers, loadUsers, token]);
+
+  const handleEditUser = useCallback((user: UserItem) => {
+    navigation.navigate('EditarUsuario', { userId: user._id });
+  }, [navigation]);
+
+  const handleDeleteUser = useCallback((user: UserItem) => {
+    setConfirmingDeleteUserId(user._id);
+  }, []);
+
+  const handleCancelDelete = useCallback(() => {
+    setConfirmingDeleteUserId(null);
+  }, []);
+
+  const renderUser = useCallback(
+    ({ item }: { item: UserItem }) => (
+      <UserListItem
+        confirmingDeleteUserId={confirmingDeleteUserId}
+        deletingUserId={deletingUserId}
+        item={item}
+        onCancelDelete={handleCancelDelete}
+        onConfirmDelete={deleteUser}
+        onDelete={handleDeleteUser}
+        onEdit={handleEditUser}
+      />
+    ),
+    [
+      confirmingDeleteUserId,
+      deletingUserId,
+      deleteUser,
+      handleCancelDelete,
+      handleDeleteUser,
+      handleEditUser,
+    ],
+  );
+
+  const listHeader = useMemo(
+    () => (
+      <View style={styles.searchContainer}>
+        <TextInput
+          autoCapitalize="none"
+          autoCorrect={false}
+          clearButtonMode="while-editing"
+          placeholder={searchPlaceholder}
+          placeholderTextColor="#9CA3AF"
+          returnKeyType="search"
+          style={styles.searchInput}
+          value={search}
+          onChangeText={setSearch}
+        />
+      </View>
+    ),
+    [search, searchPlaceholder],
+  );
+
+  const emptyComponent = useMemo(
+    () => (
+      <View style={styles.feedback}>
+        <Text style={styles.feedbackTitle}>{error || emptyMessage}</Text>
+        <Text style={styles.feedbackText}>Puxe para baixo para tentar novamente.</Text>
+      </View>
+    ),
+    [emptyMessage, error],
+  );
+
+  const flatListExtraData = useMemo(
+    () => ({
+      confirmingDeleteUserId,
+      deletingUserId,
+    }),
+    [confirmingDeleteUserId, deletingUserId],
+  );
 
   if (!canManageUsers) {
     return (
@@ -166,7 +318,11 @@ export function UserList({ emptyMessage, role, searchPlaceholder, userLabel }: U
   return (
     <FlatList
       data={filteredUsers}
+      extraData={flatListExtraData}
+      style={styles.listContainer}
       keyExtractor={(item) => item._id}
+      ItemSeparatorComponent={ListSeparator}
+      keyboardShouldPersistTaps="handled"
       refreshControl={
         <RefreshControl
           refreshing={isRefreshing}
@@ -174,97 +330,23 @@ export function UserList({ emptyMessage, role, searchPlaceholder, userLabel }: U
           onRefresh={() => loadUsers(true)}
         />
       }
-      ListHeaderComponent={
-        <View style={styles.searchContainer}>
-          <TextInput
-            autoCapitalize="none"
-            autoCorrect={false}
-            clearButtonMode="while-editing"
-            placeholder={searchPlaceholder}
-            placeholderTextColor="#9CA3AF"
-            returnKeyType="search"
-            style={styles.searchInput}
-            value={search}
-            onChangeText={setSearch}
-          />
-        </View>
-      }
+      ListHeaderComponent={listHeader}
       contentContainerStyle={filteredUsers.length === 0 ? styles.emptyList : styles.list}
-      ListEmptyComponent={
-        <View style={styles.feedback}>
-          <Text style={styles.feedbackTitle}>{error || emptyMessage}</Text>
-          <Text style={styles.feedbackText}>Puxe para baixo para tentar novamente.</Text>
-        </View>
-      }
-      renderItem={({ item }) => {
-        const isDeleting = deletingUserId === item._id;
-        const isConfirmingDelete = confirmingDeleteUserId === item._id;
-
-        return (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>{item.nome || 'Sem nome'}</Text>
-            <Text style={styles.cardText}>{item.email}</Text>
-            <Text style={styles.cardMeta}>{item.role}</Text>
-
-            <View style={styles.actions}>
-              <Pressable
-                style={styles.editButton}
-                onPress={() => navigation.navigate('EditarUsuario', { userId: item._id })}
-              >
-                <Text style={styles.editButtonText}>Editar</Text>
-              </Pressable>
-
-              <Pressable
-                disabled={isDeleting}
-                style={[styles.deleteButton, isDeleting && styles.disabledButton]}
-                onPress={() => setConfirmingDeleteUserId(item._id)}
-              >
-                {isDeleting ? (
-                  <ActivityIndicator color="#B91C1C" />
-                ) : (
-                  <Text style={styles.deleteButtonText}>Delete</Text>
-                )}
-              </Pressable>
-            </View>
-
-            {isConfirmingDelete ? (
-              <View style={styles.deleteConfirmation}>
-                <Text style={styles.deleteConfirmationText}>Deseja remover este usuario?</Text>
-
-                <View style={styles.deleteConfirmationActions}>
-                  <Pressable
-                    disabled={isDeleting}
-                    style={styles.cancelDeleteButton}
-                    onPress={() => setConfirmingDeleteUserId(null)}
-                  >
-                    <Text style={styles.cancelDeleteButtonText}>Cancelar</Text>
-                  </Pressable>
-
-                  <Pressable
-                    disabled={isDeleting}
-                    style={[styles.confirmDeleteButton, isDeleting && styles.disabledButton]}
-                    onPress={() => deleteUser(item)}
-                  >
-                    {isDeleting ? (
-                      <ActivityIndicator color="#FFFFFF" />
-                    ) : (
-                      <Text style={styles.confirmDeleteButtonText}>Confirmar delete</Text>
-                    )}
-                  </Pressable>
-                </View>
-              </View>
-            ) : null}
-          </View>
-        );
-      }}
+      ListEmptyComponent={emptyComponent}
+      renderItem={renderUser}
     />
   );
 }
 
 const styles = StyleSheet.create({
   list: {
-    gap: 12,
     padding: 16,
+  },
+  listContainer: {
+    flex: 1,
+  },
+  separator: {
+    height: 12,
   },
   emptyList: {
     flexGrow: 1,

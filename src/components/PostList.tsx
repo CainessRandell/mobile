@@ -87,6 +87,110 @@ type PostListProps = {
   emptyMessage?: string;
 };
 
+type PostListItemProps = {
+  canManagePosts: boolean;
+  confirmingDeletePostId: string | null;
+  deletingPostId: string | null;
+  item: Post;
+  showEditButton: boolean;
+  onDelete: (item: Post) => void;
+  onCancelDelete: () => void;
+  onConfirmDelete: (item: Post) => void;
+  onEdit: (item: Post) => void;
+  onOpen: (item: Post) => void;
+};
+
+function ListSeparator() {
+  return <View style={styles.separator} />;
+}
+
+function PostListItem({
+  canManagePosts,
+  confirmingDeletePostId,
+  deletingPostId,
+  item,
+  showEditButton,
+  onDelete,
+  onCancelDelete,
+  onConfirmDelete,
+  onEdit,
+  onOpen,
+}: PostListItemProps) {
+  const description = truncateText(getPostDescription(item), 128);
+  const postId = getPostId(item);
+  const isConfirmingDelete = confirmingDeletePostId === postId;
+  const isDeleting = deletingPostId === postId;
+
+  return (
+    <View style={styles.card}>
+      <Pressable onPress={() => onOpen(item)}>
+        <Text style={styles.cardTitle}>{getPostTitle(item)}</Text>
+
+        {description ? (
+          <Text numberOfLines={4} style={styles.cardDescription}>
+            {description}
+          </Text>
+        ) : null}
+
+        {item.autor || item.dataCriacao ? (
+          <View style={styles.metaRow}>
+            <Text style={styles.metaText}>{item.autor || 'Autor'}</Text>
+            <Text style={styles.metaText}>{item.dataCriacao}</Text>
+          </View>
+        ) : null}
+      </Pressable>
+
+      {showEditButton && canManagePosts ? (
+        <View style={styles.adminActions}>
+          <Pressable style={styles.editButton} onPress={() => onEdit(item)}>
+            <Text style={styles.editButtonText}>Editar</Text>
+          </Pressable>
+
+          <Pressable
+            disabled={isDeleting}
+            style={[styles.deleteButton, isDeleting && styles.disabledButton]}
+            onPress={() => onDelete(item)}
+          >
+            {isDeleting ? (
+              <ActivityIndicator color="#B91C1C" />
+            ) : (
+              <Text style={styles.deleteButtonText}>Delete</Text>
+            )}
+          </Pressable>
+        </View>
+      ) : null}
+
+      {showEditButton && canManagePosts && isConfirmingDelete ? (
+        <View style={styles.deleteConfirmation}>
+          <Text style={styles.deleteConfirmationText}>Deseja remover este post?</Text>
+
+          <View style={styles.deleteConfirmationActions}>
+            <Pressable
+              disabled={isDeleting}
+              style={styles.cancelDeleteButton}
+              onPress={onCancelDelete}
+            >
+              <Text style={styles.cancelDeleteButtonText}>Cancelar</Text>
+            </Pressable>
+
+            <Pressable
+              disabled={isDeleting}
+              style={[styles.confirmDeleteButton, isDeleting && styles.disabledButton]}
+              onPress={() => onConfirmDelete(item)}
+            >
+              {isDeleting ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.confirmDeleteButtonText}>Confirmar delete</Text>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 export function PostList({
   showEditButton = false,
   emptyMessage = 'Nenhum post encontrado.',
@@ -144,28 +248,28 @@ export function PostList({
 
   const hasMorePosts = visiblePostsCount < filteredPosts.length;
 
-  function handleSearchChange(value: string) {
+  const handleSearchChange = useCallback((value: string) => {
     setSearch(value);
     setVisiblePostsCount(POSTS_PER_PAGE);
-  }
+  }, []);
 
-  function handleShowMore() {
+  const handleShowMore = useCallback(() => {
     setVisiblePostsCount((current) => current + POSTS_PER_PAGE);
-  }
+  }, []);
 
-  function handleOpenPost(item: Post) {
+  const handleOpenPost = useCallback((item: Post) => {
     navigation.navigate('ExibirPost', {
       postId: getPostId(item),
     });
-  }
+  }, [navigation]);
 
-  function handleEditPost(item: Post) {
+  const handleEditPost = useCallback((item: Post) => {
     navigation.navigate('EditarPost', {
       postId: getPostId(item),
     });
-  }
+  }, [navigation]);
 
-  async function deletePost(item: Post) {
+  const deletePost = useCallback(async (item: Post) => {
     if (!canManagePosts || !token) {
       Alert.alert('Delete', 'Acesso permitido somente para professor autenticado.');
       return;
@@ -188,11 +292,94 @@ export function PostList({
     } finally {
       setDeletingPostId(null);
     }
-  }
+  }, [canManagePosts, loadPosts, token]);
 
-  function handleDeletePost(item: Post) {
+  const handleDeletePost = useCallback((item: Post) => {
     setConfirmingDeletePostId(getPostId(item));
-  }
+  }, []);
+
+  const handleCancelDelete = useCallback(() => {
+    setConfirmingDeletePostId(null);
+  }, []);
+
+  const renderPost = useCallback(
+    ({ item }: { item: Post }) => (
+      <PostListItem
+        canManagePosts={canManagePosts}
+        confirmingDeletePostId={confirmingDeletePostId}
+        deletingPostId={deletingPostId}
+        item={item}
+        showEditButton={showEditButton}
+        onCancelDelete={handleCancelDelete}
+        onConfirmDelete={deletePost}
+        onDelete={handleDeletePost}
+        onEdit={handleEditPost}
+        onOpen={handleOpenPost}
+      />
+    ),
+    [
+      canManagePosts,
+      confirmingDeletePostId,
+      deletingPostId,
+      handleCancelDelete,
+      handleDeletePost,
+      handleEditPost,
+      handleOpenPost,
+      deletePost,
+      showEditButton,
+    ],
+  );
+
+  const listHeader = useMemo(
+    () => (
+      <View style={styles.searchContainer}>
+        <TextInput
+          autoCapitalize="none"
+          autoCorrect={false}
+          clearButtonMode="while-editing"
+          placeholder="Buscar posts por palavra-chave"
+          placeholderTextColor="#9CA3AF"
+          returnKeyType="search"
+          style={styles.searchInput}
+          value={search}
+          onChangeText={handleSearchChange}
+        />
+      </View>
+    ),
+    [handleSearchChange, search],
+  );
+
+  const listFooter = useMemo(
+    () =>
+      hasMorePosts ? (
+        <Pressable style={styles.showMoreButton} onPress={handleShowMore}>
+          <Text style={styles.showMoreButtonText}>Exibir mais.</Text>
+        </Pressable>
+      ) : null,
+    [handleShowMore, hasMorePosts],
+  );
+
+  const emptyComponent = useMemo(
+    () => (
+      <View style={styles.feedback}>
+        <Text style={styles.emptyTitle}>
+          {error || (search ? 'Nenhum post encontrado para esta busca.' : emptyMessage)}
+        </Text>
+        <Text style={styles.emptyText}>Puxe para baixo para tentar novamente.</Text>
+      </View>
+    ),
+    [emptyMessage, error, search],
+  );
+
+  const flatListExtraData = useMemo(
+    () => ({
+      canManagePosts,
+      confirmingDeletePostId,
+      deletingPostId,
+      showEditButton,
+    }),
+    [canManagePosts, confirmingDeletePostId, deletingPostId, showEditButton],
+  );
 
   if (isLoading) {
     return (
@@ -206,7 +393,11 @@ export function PostList({
   return (
     <FlatList
       data={visiblePosts}
+      extraData={flatListExtraData}
+      style={styles.listContainer}
       keyExtractor={getPostId}
+      ItemSeparatorComponent={ListSeparator}
+      keyboardShouldPersistTaps="handled"
       refreshControl={
         <RefreshControl
           refreshing={isRefreshing}
@@ -214,124 +405,24 @@ export function PostList({
           onRefresh={() => loadPosts(true)}
         />
       }
-      ListHeaderComponent={
-        <View style={styles.searchContainer}>
-          <TextInput
-            autoCapitalize="none"
-            autoCorrect={false}
-            clearButtonMode="while-editing"
-            placeholder="Buscar posts por palavra-chave"
-            placeholderTextColor="#9CA3AF"
-            returnKeyType="search"
-            style={styles.searchInput}
-            value={search}
-            onChangeText={handleSearchChange}
-          />
-        </View>
-      }
-      ListFooterComponent={
-        hasMorePosts ? (
-          <Pressable style={styles.showMoreButton} onPress={handleShowMore}>
-            <Text style={styles.showMoreButtonText}>Exibir mais.</Text>
-          </Pressable>
-        ) : null
-      }
+      ListHeaderComponent={listHeader}
+      ListFooterComponent={listFooter}
       contentContainerStyle={visiblePosts.length === 0 ? styles.emptyList : styles.list}
-      ListEmptyComponent={
-        <View style={styles.feedback}>
-          <Text style={styles.emptyTitle}>
-            {error ||
-              (search ? 'Nenhum post encontrado para esta busca.' : emptyMessage)}
-          </Text>
-          <Text style={styles.emptyText}>Puxe para baixo para tentar novamente.</Text>
-        </View>
-      }
-      renderItem={({ item }) => {
-        const description = truncateText(getPostDescription(item), 128);
-        const postId = getPostId(item);
-        const isConfirmingDelete = confirmingDeletePostId === postId;
-        const isDeleting = deletingPostId === postId;
-
-        return (
-          <View style={styles.card}>
-            <Pressable onPress={() => handleOpenPost(item)}>
-              <Text style={styles.cardTitle}>{getPostTitle(item)}</Text>
-
-              {description ? (
-                <Text numberOfLines={4} style={styles.cardDescription}>
-                  {description}
-                </Text>
-              ) : null}
-
-              {item.autor || item.dataCriacao ? (
-                <View style={styles.metaRow}>
-                  <Text style={styles.metaText}>{item.autor || 'Autor'}</Text>
-                  <Text style={styles.metaText}>{item.dataCriacao}</Text>
-                </View>
-              ) : null}
-            </Pressable>
-
-            {showEditButton && canManagePosts ? (
-              <View style={styles.adminActions}>
-                <Pressable style={styles.editButton} onPress={() => handleEditPost(item)}>
-                  <Text style={styles.editButtonText}>Editar</Text>
-                </Pressable>
-
-                <Pressable
-                  disabled={isDeleting}
-                  style={[
-                    styles.deleteButton,
-                    isDeleting && styles.disabledButton,
-                  ]}
-                  onPress={() => handleDeletePost(item)}
-                >
-                  {isDeleting ? (
-                    <ActivityIndicator color="#B91C1C" />
-                  ) : (
-                    <Text style={styles.deleteButtonText}>Delete</Text>
-                  )}
-                </Pressable>
-              </View>
-            ) : null}
-
-            {showEditButton && canManagePosts && isConfirmingDelete ? (
-              <View style={styles.deleteConfirmation}>
-                <Text style={styles.deleteConfirmationText}>Deseja remover este post?</Text>
-
-                <View style={styles.deleteConfirmationActions}>
-                  <Pressable
-                    disabled={isDeleting}
-                    style={styles.cancelDeleteButton}
-                    onPress={() => setConfirmingDeletePostId(null)}
-                  >
-                    <Text style={styles.cancelDeleteButtonText}>Cancelar</Text>
-                  </Pressable>
-
-                  <Pressable
-                    disabled={isDeleting}
-                    style={[styles.confirmDeleteButton, isDeleting && styles.disabledButton]}
-                    onPress={() => deletePost(item)}
-                  >
-                    {isDeleting ? (
-                      <ActivityIndicator color="#FFFFFF" />
-                    ) : (
-                      <Text style={styles.confirmDeleteButtonText}>Confirmar delete</Text>
-                    )}
-                  </Pressable>
-                </View>
-              </View>
-            ) : null}
-          </View>
-        );
-      }}
+      ListEmptyComponent={emptyComponent}
+      renderItem={renderPost}
     />
   );
 }
 
 const styles = StyleSheet.create({
   list: {
-    gap: 12,
     padding: 16,
+  },
+  listContainer: {
+    flex: 1,
+  },
+  separator: {
+    height: 12,
   },
   emptyList: {
     flexGrow: 1,
