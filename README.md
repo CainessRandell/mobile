@@ -86,7 +86,7 @@ src/
 - Listagem, edicao e remocao de professores e alunos.
 
 ## Autenticacao
-
+ 
 O login usa Firebase Authentication. A configuracao fica em variaveis de ambiente `EXPO_PUBLIC_*`.
 Crie um arquivo `.env` com base em `src/.env.example`.
 
