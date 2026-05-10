@@ -1,9 +1,11 @@
 import * as SecureStore from 'expo-secure-store';
+import { signOut as firebaseSignOut } from 'firebase/auth';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { PropsWithChildren } from 'react';
 import { Platform } from 'react-native';
 
 import { clearApiAuthToken, setApiAuthToken } from '@/api/api';
+import { firebaseAuth } from '@/services/firebase';
 
 const AUTH_TOKEN_KEY = 'fivam.auth.token';
 const AUTH_USER_KEY = 'fivam.auth.user';
@@ -101,6 +103,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   const signOut = useCallback(async () => {
+    if (firebaseAuth?.currentUser) {
+      try {
+        await firebaseSignOut(firebaseAuth);
+      } catch {
+        // A sessao local precisa ser limpa mesmo se o Firebase falhar.
+      }
+    }
+
     await deleteStoredValue(AUTH_TOKEN_KEY);
     await deleteStoredValue(AUTH_USER_KEY);
     setToken(null);

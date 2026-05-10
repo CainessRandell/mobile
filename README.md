@@ -15,6 +15,7 @@ npx create-expo-app mobile
 npm install axios
 npm install @react-navigation/native
 npm install @react-navigation/native-stack
+npm install firebase
 npx expo install react-native-screens react-native-safe-area-context expo-secure-store
 ```
 
@@ -74,17 +75,30 @@ src/
 - Exibicao inicial de 5 posts, com botao `Exibir mais.` para carregar mais 5.
 - Conteudo do card limitado a 128 caracteres.
 - Tela de detalhes do post com titulo, autor, data, conteudo e botao para exibir/ocultar `_id`.
-- Login com email e senha em `/auth/login`.
-- Armazenamento seguro do token com `expo-secure-store`.
+- Login com email e senha usando Firebase Authentication.
+- Armazenamento seguro do bearer token da API com `expo-secure-store`.
 - Menu hamburguer com `Home`, `Login` e opcoes administrativas quando o usuario for `professor`.
 - Tela administrativa reaproveitando a listagem de posts.
 - Criacao de post com `POST /posts`.
 - Edicao de post com `PUT /posts/{id}`.
 - Remocao de post com `DELETE /posts/{id}`.
+- Criacao de usuario com `POST /auth/register`.
+- Listagem, edicao e remocao de professores e alunos.
 
 ## Autenticacao
 
-O token retornado no login e armazenado no `AuthContext` usando `expo-secure-store` no Android/iOS.
+O login usa Firebase Authentication. A configuracao fica em variaveis de ambiente `EXPO_PUBLIC_*`.
+Crie um arquivo `.env` com base em `src/.env.example`.
+
+O usuario autentica primeiro no Firebase Authentication. Apos o sucesso, o app envia o `firebaseUid` para `/auth/login`:
+
+```json
+{
+  "firebaseUid": "uid-do-firebase"
+}
+```
+
+O bearer token retornado pela API e armazenado no `AuthContext` usando `expo-secure-store` no Android/iOS.
 
 As operacoes administrativas enviam:
 
@@ -98,6 +112,8 @@ As telas administrativas so ficam disponiveis quando:
 isAuthenticated === true
 user.role === 'professor'
 ```
+
+O campo `role` retornado pela API deve ser `professor` para liberar o menu administrativo.
 
 ## Scripts
 

@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { signInWithEmailAndPassword, signOut as firebaseSignOut } from 'firebase/auth';
+import type { User as FirebaseUser } from 'firebase/auth';
 import {
   ActivityIndicator,
   Alert,
@@ -17,8 +19,9 @@ import { Footer } from '@/components/Footer';
 import { Header } from '@/components/Header';
 import { useAuth } from '@/contexts/AuthContext';
 import type { AuthUser } from '@/contexts/AuthContext';
+import { firebaseAuth, isFirebaseConfigured } from '@/services/firebase';
 
-type LoginResponse = {
+type BackendLoginResponse = {
   token?: string;
   accessToken?: string;
   jwt?: string;
@@ -41,7 +44,13 @@ type LoginResponse = {
   };
 };
 
-function extractToken(data: LoginResponse) {
+function getStringValue(data: Record<string, unknown>, key: string) {
+  const value = data[key];
+
+  return typeof value === 'string' ? value : '';
+}
+
+function extractBackendToken(data: BackendLoginResponse) {
   return (
     data.token ??
     data.accessToken ??
@@ -52,25 +61,64 @@ function extractToken(data: LoginResponse) {
   );
 }
 
-function extractUser(data: LoginResponse): AuthUser {
+function extractBackendUser(data: BackendLoginResponse, firebaseUser: FirebaseUser): AuthUser {
   const userData =
     data.user ?? data.usuario ?? data.data?.user ?? data.data?.usuario ?? data.data ?? data;
 
+  const userRecord = userData as Record<string, unknown>;
+  const nome =
+    getStringValue(userRecord, 'nome') ||
+    getStringValue(userRecord, 'name') ||
+    firebaseUser.displayName ||
+    firebaseUser.email?.split('@')[0] ||
+    '';
+
   return {
-    _id: userData._id ?? '',
-    nome: userData.nome ?? '',
-    email: userData.email ?? '',
-    role: userData.role ?? '',
+    _id: getStringValue(userRecord, '_id') || getStringValue(userRecord, 'id') || firebaseUser.uid,
+    nome,
+    email: getStringValue(userRecord, 'email') || firebaseUser.email || '',
+    role: getStringValue(userRecord, 'role'),
   };
+}
+
+function getFirebaseLoginMessage(error: unknown) {
+  const code =
+    error && typeof error === 'object' && 'code' in error
+      ? String(error.code)
+      : '';
+
+  if (code === 'auth/invalid-credential' || code === 'auth/wrong-password') {
+    return 'Email ou senha invalidos.';
+  }
+
+  if (code === 'auth/user-not-found') {
+    return 'Usuario nao encontrado.';
+  }
+
+  if (code === 'auth/too-many-requests') {
+    return 'Muitas tentativas de login. Tente novamente mais tarde.';
+  }
+
+  if (code === 'auth/network-request-failed') {
+    return 'Falha de rede ao autenticar no Firebase.';
+  }
+
+  return 'Nao foi possivel realizar o login.';
 }
 
 export function LoginScreen() {
   const { isAuthenticated, saveSession, signOut, user } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleLogin() {
+    if (!isFirebaseConfigured || !firebaseAuth) {
+      Alert.alert('Login', 'Firebase Authentication nao esta configurado.');
+      return;
+    }
+
     if (!email.trim() || !password.trim()) {
       Alert.alert('Login', 'Informe o email e a senha.');
       return;
@@ -79,23 +127,32 @@ export function LoginScreen() {
     try {
       setIsSubmitting(true);
 
-      const response = await api.post<LoginResponse>('/auth/login', {
-        email: email.trim(),
-        senha: password,
+      const credentials = await signInWithEmailAndPassword(firebaseAuth, email.trim(), password);
+      const response = await api.post<BackendLoginResponse>('/auth/login', {
+        firebaseUid: credentials.user.uid,
       });
 
-      const token = extractToken(response.data);
+      const bearerToken = extractBackendToken(response.data);
 
-      if (!token) {
-        Alert.alert('Login', 'A API nao retornou um token.');
+      if (!bearerToken) {
+        await firebaseSignOut(firebaseAuth);
+        Alert.alert('Login', 'A API nao retornou o bearerAuth.');
         return;
       }
 
-      await saveSession(token, extractUser(response.data));
+      await saveSession(bearerToken, extractBackendUser(response.data, credentials.user));
       setPassword('');
       Alert.alert('Login', 'Login realizado com sucesso.');
-    } catch {
-      Alert.alert('Login', 'Nao foi possivel realizar o login.');
+    } catch (error) {
+      if (firebaseAuth.currentUser) {
+        try {
+          await firebaseSignOut(firebaseAuth);
+        } catch {
+          // A sessao local do app nao sera salva quando a API falhar.
+        }
+      }
+
+      Alert.alert('Login', getFirebaseLoginMessage(error));
     } finally {
       setIsSubmitting(false);
     }
@@ -159,16 +216,30 @@ export function LoginScreen() {
               />
 
               <Text style={styles.label}>Senha</Text>
-              <TextInput
-                autoCapitalize="none"
-                autoComplete="password"
-                placeholder="Informe sua senha"
-                placeholderTextColor="#9CA3AF"
-                secureTextEntry
-                style={styles.input}
-                value={password}
-                onChangeText={setPassword}
-              />
+              <View style={styles.passwordRow}>
+                <TextInput
+                  autoCapitalize="none"
+                  autoComplete="current-password"
+                  placeholder="Informe sua senha"
+                  placeholderTextColor="#9CA3AF"
+                  secureTextEntry={!showPassword}
+                  style={styles.passwordInput}
+                  textContentType="password"
+                  value={password}
+                  onChangeText={setPassword}
+                />
+
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={isSubmitting}
+                  style={styles.passwordToggle}
+                  onPress={() => setShowPassword((current) => !current)}
+                >
+                  <Text style={styles.passwordToggleText}>
+                    {showPassword ? 'Ocultar' : 'Mostrar'}
+                  </Text>
+                </Pressable>
+              </View>
 
               <Pressable
                 disabled={isSubmitting}
@@ -218,6 +289,33 @@ const styles = StyleSheet.create({
     fontSize: 15,
     minHeight: 48,
     paddingHorizontal: 14,
+  },
+  passwordRow: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#D1D5DB',
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: 'row',
+    minHeight: 48,
+  },
+  passwordInput: {
+    color: '#111827',
+    flex: 1,
+    fontSize: 15,
+    minHeight: 48,
+    paddingHorizontal: 14,
+  },
+  passwordToggle: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+    paddingHorizontal: 12,
+  },
+  passwordToggleText: {
+    color: '#0F766E',
+    fontSize: 13,
+    fontWeight: '800',
   },
   button: {
     alignItems: 'center',

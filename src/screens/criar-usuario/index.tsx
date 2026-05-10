@@ -67,7 +67,7 @@ export function CriarUsuarioScreen() {
         {
           nome: formValues.nome.trim(),
           email: formValues.email.trim(),
-          senha: formValues.senha,
+          password: formValues.senha,
           role: formValues.role,
         },
         {
